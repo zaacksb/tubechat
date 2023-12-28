@@ -1,7 +1,7 @@
 <br/>
 <p align="center">
   <a href="https://github.com/zaacksb/tubechat">
-    <img src="https://i.imgur.com/nZiR7Ol.png" alt="Logo" width="200" height="200">
+    <img src="https://i.imgur.com/UT2xEbA.png" alt="Logo" width="200" height="200">
   </a>
 
   <h3 align="center">Tubechat</h3>
