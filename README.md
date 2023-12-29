@@ -41,7 +41,7 @@ npm install tubechat
 Import the library
 
 ```js
-import TubeChat from 'tubechat'
+import { TubeChat } from 'tubechat'
 ```
 
 instantiate the class

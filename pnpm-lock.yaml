@@ -6,8 +6,8 @@ settings:
 
 dependencies:
   flow-monitor:
-    specifier: latest
-    version: 1.0.0
+    specifier: ^1.0.1
+    version: 1.0.1
 
 devDependencies:
   '@types/node':
@@ -53,13 +53,13 @@ packages:
     engines: {node: '>=0.4.0'}
     dev: false
 
-  /flow-monitor@1.0.0:
-    resolution: {integrity: sha512-a8FqO8/9ySHSbsuJyeQ/tmrnDjP7t2OqAxqZ/uaB2KsXi1XlVqXVOj6avIwrTfWDQ5nsPQMtCx4hjImD0HGgCw==}
+  /flow-monitor@1.0.1:
+    resolution: {integrity: sha512-pbZh83UaQaQHr6ODVQ9EwrONhqQMFppOzP/XnlN40O3VzPevHrQ8Yg09FMPTSr1EBor6/MmTIALvJuafk51/PQ==}
     engines: {node: '>=18.0'}
     dependencies:
       async-lock: 1.4.1
       axios: 1.6.3
-      reconnex: 1.0.5
+      reconnex: 1.0.6
       ws: 8.16.0
     transitivePeerDependencies:
       - bufferutil
@@ -102,8 +102,8 @@ packages:
     resolution: {integrity: sha512-D+zkORCbA9f1tdWRK0RaCR3GPv50cMxcrz4X8k5LTSUD1Dkw47mKJEZQNunItRTkWwgtaUSo1RVFRIG9ZXiFYg==}
     dev: false
 
-  /reconnex@1.0.5:
-    resolution: {integrity: sha512-Cgui02Uj7M+wRN0E2HgEtSXuJIxYGJh91ZKmDq9Lzghqt5ZqsQig1CXk5KMXuSFnCKmMzjaJzOPPb2oX/ricXQ==}
+  /reconnex@1.0.6:
+    resolution: {integrity: sha512-7zvLvOjUmfYn7xtp/gfxX9U5S1Ac3P9WSmo9mXElxSMboXRC9QVlY0+nDiAUpim9bkK4ZxyZBF8tKYMO3Jjv8g==}
     dependencies:
       ws: 8.16.0
     transitivePeerDependencies:

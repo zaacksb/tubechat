@@ -1,30 +1,23 @@
 import { EventEmitter } from 'stream';
-import { findKey, sleep } from './lib/utils';
-import { getYoutubeInitialData } from './lib/getYoutubeInitialData';
-import addChatItemAction from './lib/actions/addChatItemAction';
+import { fetchChat } from './lib/ChatMessages';
 import addBannerToLiveChatCommand from './lib/actions/addBannerToLiveChatCommand';
-import removeChatItemByAuthorAction from './lib/actions/removeChatItemByAuthorAction';
-import removeBannerForLiveChatCommand from './lib/actions/removeBannerForLiveChatCommand';
-import updateLiveChatPollAction from './lib/actions/updateLiveChatPollAction';
+import addChatItemAction from './lib/actions/addChatItemAction';
 import closeLiveChatActionPanelAction from './lib/actions/closeLiveChatActionPanelAction';
 import liveChatMembershipItemRenderer from './lib/actions/liveChatMembershipItemRenderer';
-import showLiveChatActionPanelAction from './lib/actions/showLiveChatActionPanelAction';
 import liveChatTickerSponsorItemRenderer from './lib/actions/liveChatTickerSponsorItemRenderer';
-import replaceChatItemAction from './lib/actions/replaceChatItemAction';
+import removeBannerForLiveChatCommand from './lib/actions/removeBannerForLiveChatCommand';
 import removeChatItemAction from './lib/actions/removeChatItemAction';
+import removeChatItemByAuthorAction from './lib/actions/removeChatItemByAuthorAction';
+import replaceChatItemAction from './lib/actions/replaceChatItemAction';
+import showLiveChatActionPanelAction from './lib/actions/showLiveChatActionPanelAction';
+import updateLiveChatPollAction from './lib/actions/updateLiveChatPollAction';
+import { getYoutubeInitialData } from './lib/getYoutubeInitialData';
+import { findKey, sleep } from './lib/utils';
 import { TPossibleActions } from './types/Types';
-import { fetchChat } from './lib/ChatMessages';
 
 
 
-import type { ISubGift } from "./lib/actions/liveChatSponsorshipsGiftPurchaseAnnouncementRenderer"
-import type { MemberGift } from "./lib/actions/liveChatTickerSponsorItemRenderer"
-import type { DeletedMessage } from "./lib/actions/removeChatItemAction"
-import type { ISub } from "./lib/actions/sub"
-import type { ISuperChat, ISuperChatSticker } from "./lib/actions/superchat"
-import type { LivePools } from "./lib/actions/updateLiveChatPollAction"
-import type { ChatChannel, IChatYTMessage } from "./types/Client"
-import FlowMonitor from 'flow-monitor';
+import { FlowMonitor } from 'flow-monitor';
 import { ZytChatEvents } from './types';
 
 
@@ -44,7 +37,7 @@ type TubeChatChannel = {
   shownFirstMessages: true | null
 }
 // TubeChat (YouTube Chat Capture)
-export default class TubeChat extends EventEmitter {
+export class TubeChat extends EventEmitter {
   #channels: TubeChatChannel[] = []
   #intervalChat: number = 1000
   #monitor = new FlowMonitor()

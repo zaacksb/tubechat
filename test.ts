@@ -1,4 +1,4 @@
-import TubeChat from './src'
+import { TubeChat } from './src'
 
 const tubeChat = new TubeChat()
 
