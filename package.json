@@ -1,6 +1,6 @@
 {
   "name": "tubechat",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Library to connect to broadcast chats on youtube",
   "main": "./lib/index.js",
   "files": [

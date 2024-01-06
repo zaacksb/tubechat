@@ -1,9 +1,11 @@
+import { FlowMonitor } from 'flow-monitor'
 import { TubeChat } from './src'
+// const flowMonitor = new FlowMonitor()
+const tubeChat = new TubeChat({
+  // flowMonitor: flowMonitor // use custom flowMonitor
+})
 
-const tubeChat = new TubeChat()
-
-tubeChat.connect('CNNbrasil')
-// tubeChat.connect('LofiGirl')
+tubeChat.connect('LofiGirl')
 
 tubeChat.on('chat_connected', (channel, videoId) => {
   console.log(`${channel} chat connected ${videoId}`)

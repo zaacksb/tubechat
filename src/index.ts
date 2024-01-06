@@ -23,6 +23,7 @@ import { ZytChatEvents } from './types';
 
 export type TubeChatT = {
   intervalChat?: number
+  flowMonitor?: FlowMonitor
 }
 
 type TubeChatChannel = {
@@ -40,10 +41,11 @@ type TubeChatChannel = {
 export class TubeChat extends EventEmitter {
   #channels: TubeChatChannel[] = []
   #intervalChat: number = 1000
-  #monitor = new FlowMonitor()
+  #monitor: FlowMonitor
   constructor(config: TubeChatT = {}) {
     super()
     this.#intervalChat = config.intervalChat || 1000
+    this.#monitor = config?.flowMonitor || new FlowMonitor()
     this.checkers()
   }
   on<E extends keyof TubeChatEvents>(event: E, listener: TubeChatEvents[E]): this {
@@ -76,26 +78,28 @@ export class TubeChat extends EventEmitter {
     }
   }
 
-  private async channelUpdate(user: string, videoId: string, streamDown: boolean = false) {
-    const channelData = this.#channels.find(chn => chn.user == user)
-    if (channelData?.user) {
-      if (streamDown) {
-        this.chatDisconnected(channelData?.user)
-        return
-      }
-      if (!channelData?.videoId && videoId) {
-        this.updateVideo(channelData.user, videoId)
-      } else if (channelData?.videoId && channelData.videoId !== videoId) {
-        this.updateVideo(channelData.user, videoId)
+  private async channelUpdate(user: string, videoId: string, streamDown: boolean = false, platform: string) {
+    if (platform == 'youtube') {
+      const channelData = this.#channels.find(chn => chn.user == user)
+      if (channelData?.user) {
+        if (streamDown) {
+          this.chatDisconnected(channelData?.user)
+          return
+        }
+        if (!channelData?.videoId && videoId) {
+          this.updateVideo(channelData.user, videoId)
+        } else if (channelData?.videoId && channelData.videoId !== videoId) {
+          this.updateVideo(channelData.user, videoId)
+        }
       }
     }
   }
 
   private async checkerLive() {
-    this.#monitor.on('streamUp', (data) => this.channelUpdate(data.channel, data.vodId))
-    this.#monitor.on('streamDown', (data) => this.channelUpdate(data.channel, data.vodId, true))
-    this.#monitor.on('viewerCount', (data) => this.channelUpdate(data.channel, data.vodId))
-    this.#monitor.start()
+    this.#monitor?.on('streamUp', (data) => this.channelUpdate(data.channel, data.vodId, false, data.platform))
+    this.#monitor?.on('streamDown', (data) => this.channelUpdate(data.channel, data.vodId, true, data.platform))
+    this.#monitor?.on('viewerCount', (data) => this.channelUpdate(data.channel, data.vodId, false, data.platform))
+    this.#monitor?.start()
   }
 
   private updateChannelData(updateUser: string, newData: Partial<TubeChatChannel>) {
@@ -223,7 +227,7 @@ export class TubeChat extends EventEmitter {
   public disconnect(user: string) {
     user = user.replace('@', '')
     this.chatDisconnected(user)
-    this.#monitor.disconnect(user, 'youtube')
+    this.#monitor?.disconnect(user, 'youtube')
   }
 
 
@@ -244,7 +248,7 @@ export class TubeChat extends EventEmitter {
         videoId: null,
         shownFirstMessages: null
       })
-      this.#monitor.connect(user, 'youtube')
+      this.#monitor?.connect(user, 'youtube')
     }
   }
 
