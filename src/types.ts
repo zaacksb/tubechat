@@ -1,53 +1,82 @@
-import type { ISubGift } from "./lib/actions/liveChatSponsorshipsGiftPurchaseAnnouncementRenderer"
-import type { MemberGift } from "./lib/actions/liveChatTickerSponsorItemRenderer"
-import type { DeletedMessage } from "./lib/actions/removeChatItemAction"
-import type { ISub } from "./lib/actions/sub"
-import type { ISuperChat, ISuperChatSticker } from "./lib/actions/superchat"
-import type { IUserReceiveSubGift } from "./lib/actions/subGift"
-import type { LivePools } from "./lib/actions/updateLiveChatPollAction"
-import type { ChatChannel, IChatYTMessage } from "./types/Client"
+import { NavigationEndpoint } from "./parsers/types"
 
-type ExtendChannel = { channel: string }
+export type MessageData = {
+  text: string
+  emoji?: {
+    emojiId?: string
+    shortcut?: string
+    isCustomEmoji: boolean
+    emojiImage: string
+  }
+  navigationEndpoint?: NavigationEndpoint
+}[]
 
-export type MessageEvent = (message: IChatYTMessage & ExtendChannel) => void
-export type SuperchatEventEvent = (superchat: ISuperChat & ExtendChannel) => void
-export type SuperchatStickerEvent = (superchatSticker: ISuperChatSticker & ExtendChannel) => void
-export type GiftEvent = (gift: MemberGift & ExtendChannel) => void
-export type SubGiftGroupEvent = (subgiftGroup: ISubGift & ExtendChannel) => void
-export type SubEvent = (sub: ISub & ExtendChannel) => void
-export type UpdateLiveChatPollEvent = (livePool: LivePools & ExtendChannel) => void
-export type DeletedMessageEvent = (message: DeletedMessage & ExtendChannel) => void
-export type UserReceiveSubGiftEvent = (IUserReceiveSubGift: IUserReceiveSubGift & ExtendChannel) => void
+export interface Thumbnail {
+  url: string
+}
 
-export type voidEvent = () => void
-export type anyEvent = (value: any) => void
-type UnkownMessageEvent = (message: any & ChatChannel & ExtendChannel) => void
-export type ZytChatEvents = {
-  message: MessageEvent
-  superchat: SuperchatEventEvent
-  superchatSticker: SuperchatStickerEvent
-  gift: GiftEvent
-  liveChatSponsorshipsGiftPurchaseAnnouncementRenderer: GiftEvent
-  subgiftGroup: SubGiftGroupEvent
-  subGift: GiftEvent
-  userReceiveSubGift: UserReceiveSubGiftEvent
-  sub: SubEvent
-  updateLiveChatPoll: UpdateLiveChatPollEvent
-  deleted_message: DeletedMessageEvent
-  deleted_message_author: DeletedMessageEvent
-  chatEndedEvent: voidEvent
-  disconnect: voidEvent
-  connected: voidEvent
+export interface Channel {
+  simpleText: string
+}
 
-  showLiveChatActionPanelAction: anyEvent
-  liveChatTickerSponsorItemRenderer: anyEvent
-  chat_error: anyEvent
-  unkown: UnkownMessageEvent
-  closeLiveChatActionPanelAction: anyEvent
-  engagement: anyEvent
-  banner: anyEvent
-  chat_not_found: anyEvent
-  replaceChatItemAction: anyEvent
-  addLiveChatTickerItemAction: anyEvent
-  removeBannerForLiveChatCommand: anyEvent
+export interface Runs {
+  text: string
+}
+
+export interface Title {
+  runs: Runs[]
+}
+
+export interface Views {
+  runs: Runs[]
+}
+
+export interface PublishDate {
+  simpleText: string
+}
+
+export interface CommandMetadata {
+  webCommandMetadata: {
+    url: string
+    webPageType: string
+    rootVe: number
+    apiUrl: string
+  }
+}
+
+export interface BrowseEndpoint {
+  browseId: string
+  canonicalBaseUrl: string
+}
+
+export interface ChannelNavigationEndpoint {
+  clickTrackingParams: string
+  commandMetadata: CommandMetadata
+  browseEndpoint: BrowseEndpoint
+}
+
+export interface ChannelThumbnail {
+  thumbnails: Thumbnail[]
+}
+
+export interface VideoDescriptionHeaderRenderer {
+  title: Title
+  channel: Channel
+  views: Views
+  publishDate: PublishDate
+  channelNavigationEndpoint: ChannelNavigationEndpoint
+  channelThumbnail: ChannelThumbnail
+}
+export interface VideoPrimaryInfoRenderer {
+  title: Title
+  badges?: {
+    metadataBadgeRenderer: {
+      icon: {
+        iconType: String | "SPONSORSHIP_STAR"
+      },
+      style: String | "BADGE_STYLE_TYPE_MEMBERS_ONLY",
+      label: String | "Members only",
+      iconSourceUrl: string
+    }
+  }[]
 }

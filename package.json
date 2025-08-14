@@ -1,45 +1,55 @@
 {
   "name": "tubechat",
-  "version": "1.0.3",
+  "version": "1.0.16",
   "description": "Library to connect to broadcast chats on youtube",
-  "main": "./lib/index.js",
-  "files": [
-    "lib/**/*"
+  "keywords": [
+    "youtube",
+    "chat",
+    "tubechat"
   ],
-  "scripts": {
-    "build": "tsc && npm run pkg:local",
-    "pkg:local": "npm pack --pack-destination ../"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/zaacksb/tubechat.git"
-  },
-  "license": "MIT",
   "author": {
     "name": "ZackSB",
     "email": "zaacksb@users.noreply.github.com",
     "url": "https://github.com/zaacksb"
   },
-  "engines": {
-    "node": ">=18.0"
-  },
-  "keywords": [
-    "Zacksb",
-    "youtube",
-    "chat",
-    "live",
-    "stream",
-    "no api"
-  ],
-  "bugs": {
-    "url": "https://github.com/zaacksb/tubechat/issues"
-  },
+  "license": "MIT",
   "homepage": "https://github.com/zaacksb/tubechat#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zaacksb/tubechat.git"
+  },
+  "bugs": "https://github.com/zaacksb/tubechat/issues",
+  "type": "module",
+  "main": "./dist/tubechat.node.mjs",
+  "browser": "./dist/tubechat.browser.min.mjs",
+  "types": "./dist/index.d.ts",
+  "engines": {
+    "node": ">=22"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/tubechat.node.mjs",
+      "require": "./dist/tubechat.node.cjs",
+      "default": "./dist/tubechat.node.cjs"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "rm -rf dist/* && tsx scripts/build.ts && tsc",
+    "tsc-w": "tsc -w"
+  },
   "devDependencies": {
-    "@types/node": "^12.20.11",
-    "typescript": "^4.2.4"
+    "@types/node": "^22.17.0",
+    "@types/ws": "^8.18.1",
+    "esbuild": "^0.25.8",
+    "tsx": "^4.20.3",
+    "typescript": "^5.9.2",
+    "ws": "^8.18.3"
   },
   "dependencies": {
-    "flow-monitor": "^1.0.1"
+    "yt-chat-signaler": "^0.1.3"
   }
 }

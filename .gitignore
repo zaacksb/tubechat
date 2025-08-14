@@ -1,3 +1,6 @@
-.local-pack
-node_modules
-lib
+.data/
+.data-tests/
+node_modules/
+tmp/
+TODO/
+dist/
