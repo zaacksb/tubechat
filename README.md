@@ -425,11 +425,11 @@ Distributed under the MIT License. See [LICENSE](https://github.com/zaacksb/tube
 ## Testing
 
 ```sh
-npm test          # 98 hermetic tests (no network): parsers, auth, write-path, wiring
+npm test          # 111 hermetic tests (no network): parsers, auth, write-path, replay, events, wiring
 npm run test:types  # compile-time checks of the public type surface
 ```
 
-Tests use hand-crafted fixtures mirroring real youtubei shapes (`tests/fixtures.ts`) plus a stubbed `fetch` for the write path (`send_message`, `moderate`, `vote`, `get_item_context_menu`) — no live connection needed.
+Tests use hand-crafted fixtures mirroring real youtubei shapes (`tests/fixtures.ts`) plus a stubbed `fetch` for the write path (`send_message`, `moderate`, `vote`, `get_item_context_menu`) and the replay client (watch page + `get_live_chat_replay` with `playerOffsetMs` seeks) — no live connection needed.
 
 ## Authors
 
