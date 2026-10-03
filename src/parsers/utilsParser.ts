@@ -5,7 +5,8 @@ export function formatBeforeContentButtons(beforeContentButtons: LeaderboardBadg
     buttonViewModel: {
       accessibilityText: data.buttonViewModel.accessibilityText,
       iconName: data.buttonViewModel.iconName,
-      title: data.buttonViewModel.title
+      title: data.buttonViewModel.title,
+      ...(data.buttonViewModel.onTap && { onTap: data.buttonViewModel.onTap }),
     }
   }))
 }
@@ -164,25 +165,59 @@ const currencies = {
   "ARS": "ars"
 }
 export function convertSymbolCurrencies(stringValue: string, customFormats?: Record<string, string>): { symbol: string, currency: string, value: number } {
-  const currencyFormats: Record<string, string> = customFormats || currencies
+  const currencyFormats: Record<string, string> = customFormats || currencies;
 
-  const exp = /^(\D+)\s?([\d.,]+)$/g
-  const match = exp.exec(stringValue)
+  const raw = (stringValue || '').trim();
+  const exp = /^(\D+?)\s?([\d.,\s]+)$/;
+  const match = exp.exec(raw);
 
   if (!match) {
-    return { symbol: stringValue, currency: stringValue, value: NaN }
+    return { symbol: raw, currency: raw, value: NaN };
   }
 
-  const [, symbol, amount] = match
-  const cleanedAmount = amount?.replace('.', '').replace(',', '.')
-  const value = parseFloat(cleanedAmount!)
+  const symbol = (match[1] || '').trim();
+  const amount = (match[2] || '').replace(/\s/g, '');
+  // Resolve decimal vs thousands separators:
+  // - both '.' and ',' present -> last one is decimal ("1,000.00", "1.000,00")
+  // - only commas -> thousands if /^\d{1,3}(,\d{3})+$/ ("1,000", "10,000,000"), else decimal ("5,00")
+  // - only dots -> thousands if /^\d{1,3}(\.\d{3})+$/ ("1.000"), else decimal ("12.50")
+  const hasDot = amount.includes('.');
+  const hasComma = amount.includes(',');
+  let normalized: string;
+  if (hasDot && hasComma) {
+    normalized = amount.lastIndexOf('.') > amount.lastIndexOf(',')
+      ? amount.replace(/,/g, '')
+      : amount.replace(/\./g, '').replace(',', '.');
+  } else if (hasComma) {
+    normalized = /^\d{1,3}(,\d{3})+$/.test(amount) ? amount.replace(/,/g, '') : amount.replace(',', '.');
+  } else if (hasDot) {
+    normalized = /^\d{1,3}(\.\d{3})+$/.test(amount) ? amount.replace(/\./g, '') : amount;
+  } else {
+    normalized = amount;
+  }
+  const value = parseFloat(normalized);
 
-  if (isNaN(value)) {
-    return { symbol: symbol?.trim()!, currency: symbol?.trim()!, value: NaN }
+  if (Number.isNaN(value)) {
+    return { symbol, currency: symbol, value: NaN };
   }
 
-  const cleanedSymbol = symbol?.trim()!
-  const currency = currencyFormats[cleanedSymbol] || cleanedSymbol.toLowerCase()
+  const currency = currencyFormats[symbol] || symbol.toLowerCase();
 
-  return { symbol: cleanedSymbol, currency, value }
+  return { symbol, currency, value };
+}
+
+/** purchaseAmountText can be {simpleText} or {runs[]}. Returns joined text. */
+export function purchaseAmountToText(purchaseAmountText: any): string {
+  if (!purchaseAmountText) return '';
+  if (typeof purchaseAmountText.simpleText === 'string') return purchaseAmountText.simpleText;
+  if (Array.isArray(purchaseAmountText.runs)) {
+    return purchaseAmountText.runs.map((r: any) => r?.text || '').join('');
+  }
+  return '';
+}
+
+/** Strip only a leading '//' (protocol-relative) instead of breaking https:// */
+export function normalizeThumbUrl(url: string): string {
+  if (!url) return '';
+  return url.startsWith('//') ? 'https:' + url : url;
 }

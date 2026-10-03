@@ -1,8 +1,7 @@
-import { findKey } from "../utils";
-import parseBadges from "./parseBadges";
+import { authorNameToText, authorPhotoUrl, harvestModeration, messageText, parseAuthorBadges, timestampMs } from "./common";
+import { parseMembershipMonths } from "./parseBadges";
 import parseMessages from "./parseMessage";
 import { RunWithText, TUBECHAT } from "./types";
-import { formatBeforeContentButtons } from "./utilsParser";
 
 
 export class LiveChatMembershipItemRenderer {
@@ -10,95 +9,73 @@ export class LiveChatMembershipItemRenderer {
   public static readonly rendererKey = 'liveChatMembershipItemRenderer'
 
 
-  public static parse(data: any): TUBECHAT.Msg_Sub | null {
-    const renderer = findKey<any>(data, this.rendererKey);
+  public static parseItem(item: any): TUBECHAT.Msg_Sub | null {
+    const renderer = item?.[this.rendererKey];
     if (!renderer) {
       return null;
     }
-    const isFromChatHeader = findKey(data, 'liveChatTickerSponsorItemRenderer') ? true : false
-    if (isFromChatHeader) return null // To avoid duplicate data when getting from chat header
-    
+
     try {
-      const badges = parseBadges(renderer['authorBadges'] || [], formatBeforeContentButtons(renderer['beforeContentButtons'] || []))
-      
-      if (
-        !renderer?.headerSubtext?.simpleText &&
-        !renderer.headerPrimaryText?.runs
-      ) {
-        // New Member
+      const badges = parseAuthorBadges(renderer);
+      const moderation = harvestModeration(renderer);
+      const baseAuthor = {
+        ...badges,
+        photo: authorPhotoUrl(renderer['authorPhoto']),
+        channelName: authorNameToText(renderer['authorName']),
+        channelId: renderer['authorExternalChannelId'],
+      };
+      const primaryRuns = renderer.headerPrimaryText?.runs as RunWithText[] | undefined;
+      const isResub = !!primaryRuns && primaryRuns.length > 0;
+
+      if (!isResub) {
+        // New member: plan lives in headerSubtext (simpleText or runs).
+        const subtext = renderer.headerSubtext?.simpleText
+          || (Array.isArray(renderer.headerSubtext?.runs)
+            ? (renderer.headerSubtext.runs as RunWithText[]).map((run) => run.text).join('')
+            : '');
+        const runs = renderer.headerSubtext?.runs as RunWithText[] | undefined;
+        const subMessage = [{ text: subtext || 'New member' }];
         const sub: TUBECHAT.Msg_Sub = {
           id: renderer['id'],
-          author: {
-            ...badges,
-            photo: renderer['authorPhoto']['thumbnails'][0].url,
-            channelName: renderer['authorName']['simpleText'],
-            channelId: renderer['authorExternalChannelId'],
+          author: baseAuthor,
+          message: subMessage,
+          text: messageText(subMessage),
+          plan: (runs && runs.length > 1 ? runs[1]?.text : undefined) || subtext || 'Member',
+          isResub: false,
+          timestampUsec: renderer['timestampUsec'],
+          timestamp: timestampMs(renderer['timestampUsec']),
+          ...(moderation && { moderation }),
+        };
+        return sub;
+      }
+      // Resub / milestone: "Member (6 months)" style or primary text with count.
+      const resubMessage = renderer['message']?.runs ? parseMessages(renderer['message']) : [
+        {
+          text: ((renderer.headerPrimaryText?.runs || []) as RunWithText[]).map((run) => run.text).join('')
         },
-        message: [
-          {
-            text: (renderer.headerSubtext.runs as RunWithText[]).map((run) => run.text).join('')
-          },
-        ],
-        plan: renderer?.headerSubtext.runs.length > 1 ? renderer.headerSubtext?.runs[1]?.text : 'Member',
-        isResub: false,
+      ];
+      const resub: TUBECHAT.Msg_Resub = {
+        id: renderer['id'],
+        author: baseAuthor,
+        message: resubMessage,
+        text: messageText(resubMessage),
+        plan: renderer['headerSubtext']?.['simpleText']
+          || (Array.isArray(renderer.headerSubtext?.runs)
+            ? (renderer.headerSubtext.runs as RunWithText[]).map((r) => r.text).join('')
+            : 'Member'),
+        isResub: true,
         timestampUsec: renderer['timestampUsec'],
-      }
-
-        return sub
-      } 
-      const [, months, monthsText] = renderer.headerPrimaryText.runs
-      // Resub
-        const resub: TUBECHAT.Msg_Resub = {
-          id: renderer['id'],
-          author: {
-            ...badges,
-            photo: renderer['authorPhoto']['thumbnails'][0].url,
-            channelName: renderer['authorName']['simpleText'],
-            channelId: renderer['authorExternalChannelId'],
-          },
-          message: renderer['message'] ? parseMessages(renderer['message']) : [
-            {
-              text: (renderer.headerPrimaryText.runs as RunWithText[]).map((run) => run.text).join('')
-            },
-          ],
-          plan: renderer['headerSubtext']['simpleText'],
-          isResub: true,
-          timestampUsec: renderer['timestampUsec']
-        }
-        const count = renderer['headerPrimaryText'].runs.length == 1 ? renderer['headerPrimaryText'].runs[0].text.split(' ')[2] :  months?.text || monthsText?.text || '0'
-        resub.author.badges.months = Number(count)
-        return resub
-      } catch (e) {
-        console.error("Error parsing data in liveChatMembershipItemRenderer:", e);
-        return null;
-      }
+        timestamp: timestampMs(renderer['timestampUsec']),
+        ...(moderation && { moderation }),
+      };
+      const primaryText = ((renderer.headerPrimaryText?.runs || []) as RunWithText[]).map((r) => r.text).join(' ');
+      const months = parseMembershipMonths(primaryText)
+        ?? parseMembershipMonths(renderer.headerSubtext?.simpleText || '');
+      if (months !== undefined) resub.author.badges.months = months;
+      return resub;
+    } catch (e) {
+      console.error("Error parsing data in liveChatMembershipItemRenderer:", e);
+      return null;
     }
+  }
 }
-
-
-
-
-
-// id: renderer['id'],
-// authorName: renderer['authorName']['simpleText'],
-// authorExternalChannelId: renderer['authorExternalChannelId'],
-// message: renderer['message']?.['runs'] || [],
-// authorPhoto: (renderer['authorPhoto']['thumbnails'] as Thumbnails[]).map(thumb => thumb.url),
-// authorBadges: renderer['authorBadges'] || [],
-// purchaseAmountText: renderer['purchaseAmountText'],
-// headerBackgroundColor: renderer['headerBackgroundColor'],
-// headerTextColor: renderer['headerTextColor'],
-// bodyBackgroundColor: renderer['bodyBackgroundColor'],
-// bodyTextColor: renderer['bodyTextColor'],
-// authorNameTextColor: renderer['authorNameTextColor'],
-// ...(renderer['leaderboardBadge'] && ({
-//   leaderboardBadge: {
-//     buttonViewModel: {
-//       accessibilityText: renderer['leaderboardBadge']['buttonViewModel']['accessibilityText'],
-//       iconName: renderer['leaderboardBadge']['buttonViewModel']['iconName'],
-//       title: renderer['leaderboardBadge']['buttonViewModel']['title'],
-//     }
-//   }
-// })),
-
-// timestampUsec: renderer['timestampUsec'],

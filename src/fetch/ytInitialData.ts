@@ -112,13 +112,13 @@ export async function ytInitialData(videoId: string, cookies: string = ""): Prom
         message: "Unknown fetch error"
       }
     }
-    if (error = 1) {
+    if (error == 1) {
       return {
         code: "chat_not_found",
         message: "Cannot find stream chat"
       }
     }
-    if (error = 2) {
+    if (error == 2) {
       return {
         code: "ended_event",
         message: messageError

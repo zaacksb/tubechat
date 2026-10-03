@@ -15,6 +15,13 @@ export default class EventEmitter<Events extends EventMap> {
 		this.listeners.get(event)?.delete(listener as (...args: Events[keyof Events]) => void);
 		return this;
 	}
+	once<K extends keyof Events>(event: K, listener: (...args: Events[K]) => void) {
+		const wrapper = (...args: Events[K]) => {
+			this.off(event, wrapper as (...args: Events[K]) => void);
+			listener(...args);
+		};
+		return this.on(event, wrapper as (...args: Events[K]) => void);
+	}
 	emit<K extends keyof Events>(event: K, ...args: Events[K]) {
 		if(!this.listeners.has(event)) {
 			if(event === 'error') {

@@ -20,6 +20,15 @@ export function sleep(time: number) {
   })
 }
 
+/**
+ * Capped exponential backoff with jitter for reconnect loops.
+ * attempt=1 -> ~1s, 2 -> ~2s, 3 -> ~4s ... capped at ~30s.
+ */
+export function backoffMs(attempt: number): number {
+  const capped = Math.min(Math.max(Math.floor(attempt) || 1, 1), 6);
+  return Math.min(1000 * 2 ** (capped - 1), 30000) + Math.floor(Math.random() * 500);
+}
+
 export function isError(error: any): error is NodeJS.ErrnoException {
   return error instanceof Error;
 }
@@ -27,13 +36,14 @@ export function isError(error: any): error is NodeJS.ErrnoException {
 
 type TFindKeyObj = any
 export function findKey<T>(obj: TFindKeyObj, key: string): T | null {
+  if (obj === null || obj === undefined) return null;
   for (const k in obj) {
     if (k === key) {
-      return obj[k];
+      return obj[k] as T;
     }
-    if (typeof obj[k] === 'object') {
+    if (typeof obj[k] === 'object' && obj[k] !== null) {
       const value = findKey(obj[k], key);
-      if (value) {
+      if (value !== null && value !== undefined) {
         return value as T
       }
     }

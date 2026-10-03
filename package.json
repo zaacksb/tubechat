@@ -1,6 +1,6 @@
 {
   "name": "tubechat",
-  "version": "1.0.16",
+  "version": "1.1.0",
   "description": "Library to connect to broadcast chats on youtube",
   "keywords": [
     "youtube",
@@ -23,12 +23,14 @@
   "main": "./dist/tubechat.node.mjs",
   "browser": "./dist/tubechat.browser.min.mjs",
   "types": "./dist/index.d.ts",
+  "sideEffects": false,
   "engines": {
     "node": ">=22"
   },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
+      "browser": "./dist/tubechat.browser.min.mjs",
       "import": "./dist/tubechat.node.mjs",
       "require": "./dist/tubechat.node.cjs",
       "default": "./dist/tubechat.node.cjs"
@@ -38,7 +40,9 @@
     "dist"
   ],
   "scripts": {
-    "build": "rm -rf dist/* && tsx scripts/build.ts && tsc",
+    "build": "tsx scripts/clean.ts && tsx scripts/build.ts && tsc && tsx scripts/fix-dts.ts",
+    "test": "tsx --test \"tests/*.test.ts\"",
+    "test:types": "tsc --noEmit -p tsconfig.tests.json",
     "tsc-w": "tsc -w"
   },
   "devDependencies": {
