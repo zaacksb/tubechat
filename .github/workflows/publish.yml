@@ -7,6 +7,10 @@ name: publish
 on:
   release:
     types: [published]
+  # Manual fallback: Actions -> publish -> Run workflow. Always uses the
+  # current default-branch code (unlike release re-runs, which reuse the
+  # frozen tag tree and would miss workflow fixes).
+  workflow_dispatch:
 
 jobs:
   publish:
