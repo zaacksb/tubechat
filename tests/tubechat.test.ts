@@ -94,6 +94,91 @@ describe('write wiring (stubbed fetch)', () => {
     await assert.rejects(() => tube.removeMessage('VID123', { id: 'x' } as any), /No remove params/);
   });
 
+  it('removeMessage falls back to the live context menu (own messages)', async () => {
+    const bodies: any[] = [];
+    (globalThis as any).fetch = async (url: any, init: any) => {
+      const u = String(url);
+      if (u.includes('get_item_context_menu')) {
+        return json({
+          liveChatItemContextMenuSupportedRenderers: {
+            menuRenderer: {
+              items: [{
+                menuServiceItemRenderer: {
+                  text: { runs: [{ text: 'Remove' }] },
+                  icon: { iconType: 'DELETE' },
+                  serviceEndpoint: { moderateLiveChatEndpoint: { params: 'MENU_REMOVE_P' } },
+                },
+              }],
+            },
+          },
+        });
+      }
+      if (u.includes('/live_chat/moderate?')) {
+        bodies.push(JSON.parse(String(init.body)));
+        return json({ success: true });
+      }
+      return json({ success: true });
+    };
+    const tube = joinedTube(COOKIE);
+    // Echo-style payload: harvested contextMenu only, no inline remove params.
+    const own = { id: 'ECHO_1', moderation: { contextMenu: 'CTX_P' } } as any;
+    await tube.removeMessage('VID123', own);
+    assert.equal(bodies.length, 1);
+    assert.equal(bodies[0].params, 'MENU_REMOVE_P');
+  });
+
+  it('say({ deleteAfterMs }) auto-deletes the sent message', async () => {
+    const moderated: string[] = [];
+    (globalThis as any).fetch = async (url: any, init: any) => {
+      const u = String(url);
+      if (u.includes('is_popout')) return new Response(POPOUT, { status: 200 });
+      if (u.includes('/live_chat/send_message?')) {
+        return json({
+          actions: [{
+            addChatItemAction: {
+              item: {
+                liveChatTextMessageRenderer: {
+                  id: 'ECHO_EPH',
+                  message: { runs: [{ text: 'lol' }] },
+                  authorName: { simpleText: '@me' },
+                  authorPhoto: { thumbnails: [] },
+                  timestampUsec: '1000000000',
+                  authorExternalChannelId: 'UCME',
+                  contextMenuEndpoint: { liveChatItemContextMenuEndpoint: { params: 'CTX_EPH' } },
+                },
+              },
+            },
+          }],
+        });
+      }
+      if (u.includes('get_item_context_menu')) {
+        return json({
+          liveChatItemContextMenuSupportedRenderers: {
+            menuRenderer: {
+              items: [{
+                menuServiceItemRenderer: {
+                  text: { runs: [{ text: 'Remove' }] },
+                  icon: { iconType: 'DELETE' },
+                  serviceEndpoint: { moderateLiveChatEndpoint: { params: 'EPH_REMOVE_P' } },
+                },
+              }],
+            },
+          },
+        });
+      }
+      if (u.includes('/live_chat/moderate?')) {
+        moderated.push(JSON.parse(String(init.body)).params);
+        return json({ success: true });
+      }
+      return json({ success: true });
+    };
+    const tube = joinedTube(COOKIE);
+    const r = await tube.say('VID123', 'lol', { deleteAfterMs: 20 });
+    assert.equal(r.id, 'ECHO_EPH');
+    await new Promise((ok) => setTimeout(ok, 150));
+    assert.deepEqual(moderated, ['EPH_REMOVE_P']);
+  });
+
   it('vote uses choice params from poll events', async () => {
     (globalThis as any).fetch = async (url: any) => {
       assert.ok(String(url).includes('/live_chat/send_live_chat_vote?'));

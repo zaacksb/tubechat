@@ -321,14 +321,17 @@ if (tubeChat.signaler) {
   tubeChat.leave('VIDEO_ID_HERE');
   ```
 
-- **`say(videoId, text)`** *(requires login)*
+- **`say(videoId, text, opts?)`** *(requires login)*
   Sends a chat message (truncated to 200 characters). Returns the posted message id
   (plus `timeoutMs` when the server reports a slow-mode cooldown).
   The sent message is also emitted immediately as a `message` event marked
   with `isOwn: true` (deduped when polls return it later).
+  Pass `{ deleteAfterMs }` for an ephemeral message (auto-deleted after the
+  given milliseconds — the timer is fire-and-forget and failures emit `error`).
 
   ```javascript
   const { id } = await tubeChat.say('VIDEO_ID_HERE', 'hello chat!');
+  await tubeChat.say('VIDEO_ID_HERE', 'lol', { deleteAfterMs: 5000 });
   ```
 
 - **`reply` on messages** *(requires login)*
@@ -340,6 +343,7 @@ if (tubeChat.signaler) {
   ```javascript
   tubeChat.on('message', (m) => {
     if (m.text === '!ping') m.reply('pong', { mention: true }); // "@author pong"
+    if (m.text === '!temp') m.reply('lol', { deleteAfterMs: 5000 }); // ephemeral
   });
   ```
 
@@ -357,9 +361,11 @@ if (tubeChat.signaler) {
   });
   ```
 
-- **`removeMessage(videoId, message)`** *(moderator)*
-  Deletes a single message. Pass a parsed message from any event — moderation
-  params are harvested automatically — or a raw params string.
+- **`removeMessage(videoId, message)`**
+  Deletes a single message — including your own (non-moderators can delete
+  their own messages). Pass a parsed message from any event — moderation
+  params are harvested automatically, and when the renderer didn't carry
+  them the live context menu is fetched as fallback — or a raw params string.
 
   ```javascript
   tubeChat.on('message', async (message) => {

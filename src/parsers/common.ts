@@ -35,6 +35,26 @@ const MOD_ICON_MAP: Record<string, 'remove' | 'timeout' | 'hide'> = {
   REMOVE_CIRCLE: 'hide',
 };
 
+/** Find a menu item's moderate params by slot, matching icon or label.
+ *  Accepts both inline `buttonRenderer` entries and fetched
+ *  `menuServiceItemRenderer` entries (get_item_context_menu). */
+export function findMenuButtonParams(items: any[], slot: 'remove' | 'timeout' | 'hide'): string | undefined {
+  if (!Array.isArray(items)) return undefined;
+  for (const entry of items) {
+    const btn = entry?.buttonRenderer || entry?.menuServiceItemRenderer;
+    if (!btn) continue;
+    const params = btn?.serviceEndpoint?.moderateLiveChatEndpoint?.params;
+    if (typeof params !== 'string' || !params) continue;
+    const kind = MOD_ICON_MAP[btn?.icon?.iconType] || (
+      /timeout/i.test(btn?.accessibility?.label || '') ? 'timeout' :
+        /hide|ban/i.test(btn?.accessibility?.label || '') ? 'hide' :
+          /remove|delete/i.test(btn?.accessibility?.label || '') ? 'remove' : undefined
+    );
+    if (kind === slot) return params;
+  }
+  return undefined;
+}
+
 /** Harvest server-minted moderation params from a message renderer. */
 export function harvestModeration(renderer: any): TUBECHAT.ModerationParams | undefined {
   if (!renderer) return undefined;

@@ -6,6 +6,7 @@ import { ensureSendParams, fetchMessageMenu, moderateWithParams, sendChatMessage
 import EventEmitter from './lib/EventEmitter';
 import { parse } from './parsers';
 import type { ParseResult } from './parsers';
+import { findMenuButtonParams } from './parsers/common';
 import { TUBECHAT } from './parsers/types';
 import { backoffMs, isError, mergeObjects, sleep } from './utils';
 
@@ -59,6 +60,15 @@ export type ConnectionEvents = {
 };
 
 export type ChatFilter = 'live' | 'top';
+
+export interface SayOptions {
+  /**
+   * Auto-delete the message this many milliseconds after posting
+   * (ephemeral messages). The timer is fire-and-forget and doesn't
+   * keep the process alive; failures emit `error`.
+   */
+  deleteAfterMs?: number
+}
 
 export interface DownloadChatOptions {
   headers?: HeadersInit
@@ -580,21 +590,30 @@ export class TubeChat extends EventEmitter<ToTuples<ClientEvents>> {
     }
   }
 
-  private resolveModParams(target: TUBECHAT.Msg_Common | TUBECHAT.Msg_Jewels | string, slot: 'remove' | 'timeout' | 'hide' | 'contextMenu'): string {
+  private async resolveModParams(videoId: string, target: TUBECHAT.Msg_Common | TUBECHAT.Msg_Jewels | string, slot: 'remove' | 'timeout' | 'hide' | 'contextMenu'): Promise<string> {
     if (typeof target === 'string') return target;
     const mod = (target as TUBECHAT.Msg_Common).moderation;
     const params = mod?.[slot];
-    if (!params) {
-      throw new Error(`[tubechat] No ${slot} params on this message (it was received before moderation harvest, params expired, or your session is not moderator).`);
+    if (params) return params;
+    // Fallback: the live context menu almost always carries the action even
+    // when the received/echoed renderer didn't (e.g. deleting your own
+    // message, whose echo only harvests contextMenu params).
+    if (slot !== 'contextMenu' && mod?.contextMenu) {
+      const state = await this.readyWriteState(videoId);
+      const items = await fetchMessageMenu(state, mod.contextMenu);
+      const found = findMenuButtonParams(items, slot);
+      if (found) return found;
     }
-    return params;
+    throw new Error(`[tubechat] No ${slot} params on this message (it was received before moderation harvest, params expired, or your session is not moderator).`);
   }
 
   /**
    * Send a message to a live chat. Messages are truncated to 200 characters.
    * Requires login: new TubeChat({ auth: { cookie } }).
+   * Pass `{ deleteAfterMs }` for an ephemeral message (auto-deleted after
+   * the given milliseconds, e.g. `say(id, 'lol', { deleteAfterMs: 5000 })`).
    */
-  async say(videoId: string, message: string): Promise<{ id: string, timeoutMs?: number }> {
+  async say(videoId: string, message: string, opts?: SayOptions): Promise<{ id: string, timeoutMs?: number }> {
     if (!this.cookie) throw new AuthRequiredError('send messages');
     const state = await this.readyWriteState(videoId);
     const { id, data, timeoutMs } = await sendChatMessage(state, message);
@@ -606,6 +625,7 @@ export class TubeChat extends EventEmitter<ToTuples<ClientEvents>> {
     }
     // Local echo so the sent message shows instantly (marked isOwn).
     // When polls return it later, dedup drops the duplicate by id.
+    let echoMsg: TUBECHAT.Msg_Common | null = null;
     try {
       let seen = this.seenIds.get(videoId);
       if (!seen) {
@@ -621,10 +641,26 @@ export class TubeChat extends EventEmitter<ToTuples<ClientEvents>> {
           (parsed.data as TUBECHAT.Msg_Common).isOwn = true;
           this.attachMessageContext(videoId, parsed.event, parsed.data);
           this.emit('message', parsed.data as WithLiveContext<TUBECHAT.Msg_Common>, videoId, video.videoData.user, video.videoData);
+          echoMsg = parsed.data as TUBECHAT.Msg_Common;
         }
       }
     } catch {
       // Echo is best-effort; the id is still returned.
+    }
+    const deleteAfterMs = Math.floor(Number(opts?.deleteAfterMs) || 0);
+    // Needs the echoed message (carries the contextMenu fallback); a bare id
+    // is not moderation params, so without echo there is nothing to delete with.
+    if (deleteAfterMs > 0 && echoMsg) {
+      const target: TUBECHAT.Msg_Common = echoMsg;
+      const timer = setTimeout(() => {
+        this.removeMessage(videoId, target).catch((e: any) => {
+          try {
+            this.emit('error', videoId, `[Auto-delete failed]: ${e?.message || e}`);
+          } catch { /* ignore */ }
+        });
+      }, deleteAfterMs);
+      // Don't hold the process open for a background cleanup timer (node only).
+      (timer as any)?.unref?.();
     }
     return { id, ...(timeoutMs ? { timeoutMs } : {}) };
   }
@@ -648,11 +684,14 @@ export class TubeChat extends EventEmitter<ToTuples<ClientEvents>> {
   private async sendReply(videoId: string, authorName: string, text: string, opts?: TUBECHAT.ReplyOptions): Promise<{ id: string, timeoutMs?: number }> {
     const clean = (text || '').trim();
     const mention = opts?.mention !== false;
+    const ephemeral = typeof opts?.deleteAfterMs === 'number' && Number.isFinite(opts.deleteAfterMs) && opts.deleteAfterMs > 0
+      ? { deleteAfterMs: opts.deleteAfterMs }
+      : undefined;
     if (mention) {
       const handle = (authorName || '').trim().replace(/^@+/, '');
-      if (handle) return this.say(videoId, `@${handle} ${clean}`.slice(0, 200));
+      if (handle) return this.say(videoId, `@${handle} ${clean}`.slice(0, 200), ephemeral);
     }
-    return this.say(videoId, text);
+    return this.say(videoId, text, ephemeral);
   }
 
   /**
@@ -666,12 +705,14 @@ export class TubeChat extends EventEmitter<ToTuples<ClientEvents>> {
   }
 
   /**
-   * Delete a single message (moderator). Accepts a parsed message (with
+   * Delete a single message. Accepts a parsed message (with
    * harvested moderation params) or raw params string.
+   * Works for your own messages too: when the renderer didn't carry the
+   * action params, the live context menu is fetched as fallback.
    */
   async removeMessage(videoId: string, target: TUBECHAT.Msg_Common | TUBECHAT.Msg_Jewels | string): Promise<any> {
     if (!this.cookie) throw new AuthRequiredError('delete messages');
-    return await moderateWithParams(await this.readyWriteState(videoId), this.resolveModParams(target, 'remove'));
+    return await moderateWithParams(await this.readyWriteState(videoId), await this.resolveModParams(videoId, target, 'remove'));
   }
 
   /**
@@ -679,7 +720,7 @@ export class TubeChat extends EventEmitter<ToTuples<ClientEvents>> {
    */
   async timeoutUser(videoId: string, target: TUBECHAT.Msg_Common | TUBECHAT.Msg_Jewels | string): Promise<any> {
     if (!this.cookie) throw new AuthRequiredError('timeout users');
-    return await moderateWithParams(await this.readyWriteState(videoId), this.resolveModParams(target, 'timeout'));
+    return await moderateWithParams(await this.readyWriteState(videoId), await this.resolveModParams(videoId, target, 'timeout'));
   }
 
   /**
@@ -687,7 +728,7 @@ export class TubeChat extends EventEmitter<ToTuples<ClientEvents>> {
    */
   async banUser(videoId: string, target: TUBECHAT.Msg_Common | TUBECHAT.Msg_Jewels | string): Promise<any> {
     if (!this.cookie) throw new AuthRequiredError('ban users');
-    return await moderateWithParams(await this.readyWriteState(videoId), this.resolveModParams(target, 'hide'));
+    return await moderateWithParams(await this.readyWriteState(videoId), await this.resolveModParams(videoId, target, 'hide'));
   }
 
   /**
@@ -696,7 +737,7 @@ export class TubeChat extends EventEmitter<ToTuples<ClientEvents>> {
    */
   async getMenu(videoId: string, target: TUBECHAT.Msg_Common | TUBECHAT.Msg_Jewels | string): Promise<any[]> {
     if (!this.cookie) throw new AuthRequiredError('read the context menu');
-    return await fetchMessageMenu(await this.readyWriteState(videoId), this.resolveModParams(target, 'contextMenu'));
+    return await fetchMessageMenu(await this.readyWriteState(videoId), await this.resolveModParams(videoId, target, 'contextMenu'));
   }
 
   /**

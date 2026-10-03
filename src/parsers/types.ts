@@ -42,10 +42,12 @@ export namespace TUBECHAT {
      /** Full context-menu params (get_item_context_menu) */
      contextMenu?: string
    }
-   export interface ReplyOptions {
-     /** Prefix with @author (default true). */
-     mention?: boolean
-   }
+  export interface ReplyOptions {
+    /** Prefix with @author (default true). */
+    mention?: boolean
+    /** Auto-delete the reply after this many milliseconds (ephemeral). */
+    deleteAfterMs?: number
+  }
    /** Bound by TubeChat on emitted messages (absent on standalone parse()). */
    export type ReplyFn = (text: string, opts?: ReplyOptions) => Promise<{ id: string }>
    export interface AuthorMessage {
