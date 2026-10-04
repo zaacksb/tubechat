@@ -157,6 +157,31 @@ function vodWatchLong(): string {
 const VOD_WATCH_LONG = vodWatchLong();
 
 describe('replay concurrency', () => {
+  it('bootstrapReplayChat treats finished premieres as downloadable VODs', async () => {
+    (globalThis as any).fetch = async () => new Response(
+      VOD_WATCH
+        .replace('"Streamed live on Sep 26, 2026"', '"Premiered 83 minutes ago"')
+        .replace(';</script></html>', ';</script><script>var ytInitialPlayerResponse = {"videoDetails":{"videoId":"VOD123","lengthSeconds":"2620"}};</script></html>'),
+      { status: 200 },
+    );
+    const res = await bootstrapReplayChat('VOD123');
+    assert.equal(res.ok, true);
+    if (res.ok) {
+      assert.equal(res.bootstrap.durationSec, 2620);
+      assert.equal(res.bootstrap.videoData.chatType, 'vod');
+    }
+  });
+
+  it('bootstrapReplayChat still reports live/upcoming premieres as is_live', async () => {
+    (globalThis as any).fetch = async () => new Response(
+      '<html>{window.ytplayer={};\nytcfg.set({}); window.ytcfg<script>var ytInitialData = {"dateText":{"simpleText":"Premieres in 2 days"}};</script></html>',
+      { status: 200 },
+    );
+    const res: any = await bootstrapReplayChat('VOD123');
+    assert.equal(res.ok, false);
+    assert.equal(res.code, 'is_live');
+  });
+
   it('bootstrapReplayChat reads duration from ytInitialPlayerResponse', async () => {
     (globalThis as any).fetch = async () => new Response(
       VOD_WATCH.replace(

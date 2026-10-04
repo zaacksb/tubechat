@@ -132,15 +132,19 @@ export async function bootstrapReplayChat(
     } catch { /* partial metadata */ }
   }
   const dateText = (findKey<{ simpleText: string }>(ytInitialData, 'dateText')?.simpleText || '').toLowerCase();
-  if (dateText.includes('streaming') || dateText.startsWith('premiere') || dateText.includes('premieres')) {
-    return { ok: false, code: 'is_live', message: 'Video is live: use join() instead of downloadChat().' };
-  }
-  videoData.chatType = 'vod';
-
   const conv = findKey<any>(ytInitialData, 'conversationBar')?.liveChatRenderer;
   const first = (conv?.continuations || [])[0] || {};
   const token: string | undefined = first.reloadContinuationData?.continuation;
   if (!token) {
+    // No replay continuation: live now, upcoming premiere, or no chat.
+    // NOTE: finished premieres ("Premiered ...") ARE downloadable (they carry
+    // a token, handled above), so only the unfinished spellings count here.
+    const liveNow = dateText.includes('streaming') || dateText.includes('watching now')
+      || dateText.includes('started streaming') || dateText.includes('live now');
+    const upcomingPremiere = !dateText.startsWith('premiered') && dateText.includes('premier');
+    if (liveNow || upcomingPremiere) {
+      return { ok: false, code: 'is_live', message: 'Video is live: use join() instead of downloadChat().' };
+    }
     const endedText = findKey<any>(ytInitialData, 'messageRenderer')?.text?.runs
       ?.map((r: any) => r?.text || '').join('') || '';
     if (/disabled|unavailable|members only/i.test(endedText)) {
@@ -148,6 +152,7 @@ export async function bootstrapReplayChat(
     }
     return { ok: false, code: 'chat_not_found', message: 'No replay chat found on this video.' };
   }
+  videoData.chatType = 'vod';
 
   const wp = findKey<any>(ytcfg, 'WEB_PLAYER_CONTEXT_CONFIG_ID_KEVLAR_WATCH');
   const clientName: string = wp?.device?.interfaceName || 'WEB';
